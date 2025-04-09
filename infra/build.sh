@@ -1,0 +1,1 @@
+docker build -t k8s-pre-install/debug-pod:v1.0.0 .
