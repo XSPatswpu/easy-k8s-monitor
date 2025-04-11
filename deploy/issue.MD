@@ -31,3 +31,26 @@ W0408 01:42:19.489163       1 reflector.go:539] vendor/k8s.io/client-go/informer
 E0408 01:42:19.489215       1 reflector.go:147] vendor/k8s.io/client-go/informers/factory.go:159: Failed to watch *v1.EndpointSlice: failed to list *v1.EndpointSlice: Get 
 ```
 重启 kube-proxy、core-dns 解决。猜测可能与问题 1 相关。
+
+## 如何开放物理机防火墙规则
+因为后续准备以阿里云服务器为跳板机访问服务器，需要配置服务器防火墙规则，开放 8080 端口。
+
+检查防火墙状态：
+```bash
+sudo ufw status
+```
+
+开放 8080 端口：
+```bash
+sudo ufw allow 8080/tcp
+```
+
+重新加载防火墙规则：
+```bash
+sudo ufw reload
+```
+
+验证防火墙规则：
+```bash
+sudo ufw status | grep 8080
+```
