@@ -53,134 +53,22 @@ cgroupDriver: systemd
 kubectl apply -f https://github.com/flannel-io/flannel/releases/latest/download/kube-flannel.yml
 ```
 ### 3.3 使用 ansible 部署 work 节点
-```yaml
----
-- hosts: worker
-  become: yes
-  tasks:
-  - name: Update apt repo
-    apt:
-      update_cache: yes
-  - name: Install dependencies
-    apt:
-      name:
-        - apt-transport-https
-        - ca-certificates
-        - curl
-        - gnupg
-        - lsb-release
-      state: present
-  # 安装 containerd
-  - name: Add Docker official GPG key
-    apt_key:
-      url: https://download.docker.com/linux/ubuntu/gpg
-      state: present
-  - name: Add Docker repository
-    apt_repository:
-      repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
-      state: present
-      filename: docker-ce.list
-  - name: Install containerd with dependencies
-    apt:
-      name:
-        - containerd.io
-        - containernetworking-plugins
-      update_cache: yes
-  - name: Generate default containerd config
-    shell: |
-      mkdir -p /etc/containerd
-      containerd config default > /etc/containerd/config.toml
-    args:
-      creates: /etc/containerd/config.toml
-  - name: Enable systemd cgroup driver
-    replace:
-      path: /etc/containerd/config.toml
-      regexp: 'SystemdCgroup = false'
-      replacement: 'SystemdCgroup = true'
-    notify: restart containerd
-  - name: Ensure containerd user systemd directory exists
-    ansible.builtin.file:
-      path: /etc/systemd/system/containerd.service.d
-      state: directory
-      mode: '0755'
-      owner: root
-      group: root
-  - name: Deploy existing proxy config
-    ansible.builtin.copy:
-      src: /etc/systemd/system/containerd.service.d/http-proxy.conf
-      dest: /etc/systemd/system/containerd.service.d/http-proxy.conf
-      owner: root
-      group: root
-      mode: '0644'
-    notify:
-      - reload systemd
-      - restart containerd
+参考 ansible-install-k8s.yaml
 
-  # Kubernetes 安装部分
-  - name: Ensure APT keyring directory
-    file:
-      path: /etc/apt/keyrings
-      state: directory
-      mode: 0755
-  - name: Add Kubernetes GPG key
-    apt_key:
-      url: https://pkgs.k8s.io/core:/stable:/v1.29/deb/Release.key
-      keyring: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
-      state: present
-  - name: Add Kubernetes repository
-    apt_repository:
-      repo: "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.29/deb/ /"
-      state: present
-      filename: kubernetes.list
-  - name: Update package index
-    apt:
-      update_cache: yes
-  - name: Install Kubernetes packages
-    apt:
-      name:
-        - kubelet
-        - kubeadm
-        - kubectl
-      state: present
-  - name: Hold Kubernetes packages
-    dpkg_selections:
-      name: "{{ item }}"
-      selection: hold
-    loop:
-      - kubelet
-      - kubeadm
-      - kubectl
-
-  handlers:
-    - name: restart containerd
-      systemd:
-        name: containerd
-        state: restarted
-        daemon_reload: yes
-    - name: reload systemd
-      ansible.builtin.systemd:
-        daemon_reload: yes
-    - name: restart containerd
-      ansible.builtin.systemd:
-        name: containerd
-        state: restarted
-
-- hosts: control
-  become: yes
-  tasks:
-  - name: 创建 kubeadm token
-    command: kubeadm token create
-    register: token_output
-  - name: 保存 join 命令所需的信息
-    set_fact:
-      kubeadm_token: "{{ token_output.stdout }}"
-- hosts: worker
-  become: yes
-  tasks:
-  - name: 使用获取的 token 加入 Kubernetes 集群
-    shell: >
-      kubeadm join 192.168.0.103:6443
-      --token {{ hostvars['localhost'].kubeadm_token }}
-      --discovery-token-ca-cert-hash sha256:11f5e97cec64609ed9e6027f4a7b60e17e992cab83fd8e184761f536bce65fce
-```
 ### 3.4 容器网络测试
+创建 test 命名空间
+```bash
+kubectl create ns test
+```
+
+参考 debug-pod.yaml，在 ns = test 中，部署两个 debug-pod 并创建对应的 svc，保证 pod 调度到不同节点上。
+```bash
+kubectl apply -f debug-pod.yaml
+```
+
+使用 exec 进入到 debug-pod-1 pod 中，使用 curl 访问 svc，查看是否正常。
+```bash 
+kubectl exec -it debug-pod-1 -n test -- sh
+
+curl -v http://debug-pod-2.test.svc.cluster.local
+```
