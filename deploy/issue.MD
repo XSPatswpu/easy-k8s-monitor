@@ -54,3 +54,26 @@ sudo ufw reload
 ```bash
 sudo ufw status | grep 8080
 ```
+
+## prometheus 启动失败
+启动失败日志：
+```txt
+root@xsp-Venus-series:/home/xsp/dev/prometheus# k -n monitor logs prometheus-58b586598b-rjxmk
+ts=2025-04-30T08:30:18.255Z caller=main.go:516 level=info msg="Starting Prometheus" version="(version=2.34.0, branch=HEAD, revision=881111fec4332c33094a6fb2680c71fffc427275)"
+ts=2025-04-30T08:30:18.255Z caller=main.go:521 level=info build_context="(go=go1.17.8, user=root@121ad7ea5487, date=20220315-15:18:00)"
+ts=2025-04-30T08:30:18.255Z caller=main.go:522 level=info host_details="(Linux 5.4.0-187-generic #207-Ubuntu SMP Mon Jun 10 08:16:10 UTC 2024 x86_64 prometheus-58b586598b-rjxmk (none))"
+ts=2025-04-30T08:30:18.255Z caller=main.go:523 level=info fd_limits="(soft=1048576, hard=1048576)"
+ts=2025-04-30T08:30:18.255Z caller=main.go:524 level=info vm_limits="(soft=unlimited, hard=unlimited)"
+ts=2025-04-30T08:30:18.255Z caller=query_logger.go:90 level=error component=activeQueryTracker msg="Error opening query log file" file=/prometheus/queries.active err="open /prometheus/queries.active: permission denied"
+panic: Unable to create mmap-ed active query log
+
+goroutine 1 [running]:
+github.com/prometheus/prometheus/promql.NewActiveQueryTracker({0x7ffebd3fbe00, 0xb}, 0x14, {0x3637a40, 0xc0007bea00})
+	/app/promql/query_logger.go:120 +0x3d7
+main.main()
+	/app/cmd/prometheus/main.go:569 +0x6049
+```
+查看 prometheus 对应的 Dockerfile 文件,https://github.com/prometheus/prometheus/blob/main/Dockerfile
+对于用户为 nobody
+
+使用 local pvc 挂载节点磁盘路径 /data/k8s/prometheus 默认用户是 root，可能是 nobody 权限不足
