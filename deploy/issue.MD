@@ -74,6 +74,6 @@ main.main()
 	/app/cmd/prometheus/main.go:569 +0x6049
 ```
 查看 prometheus 对应的 Dockerfile 文件,https://github.com/prometheus/prometheus/blob/main/Dockerfile
-对于用户为 nobody
+对应用户为 nobody
 
 使用 local pvc 挂载节点磁盘路径 /data/k8s/prometheus 默认用户是 root，可能是 nobody 权限不足

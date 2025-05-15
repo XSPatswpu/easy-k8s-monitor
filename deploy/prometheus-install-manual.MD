@@ -10,3 +10,6 @@ kubectl apply -f prometheus-volume.yaml
 kubectl apply -f prometheus-rbac.yaml
 kubectl apply -f prometheus-deploy.yaml
 ```
+## 外网访问 prometheus
+外网访问方案：
+![img.png](../image/prometheus-access.png)
