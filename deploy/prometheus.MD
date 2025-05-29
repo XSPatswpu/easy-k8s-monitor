@@ -1,12 +1,13 @@
 # prometheus
 
 ## 概览
+通过手动搭建 prometheus、grafana 验证流程通路，为后续做自动化监控系统做准备。
+
 主要流程：
 1. 手动部署 prometheus
-2. 控制面组件监控配置
-3. 节点监控
-4. 手动部署 grafana
-5. grafana 初始化监控面板镜像
+2. 控制面组件监控配置 & 节点监控
+3. 手动部署 grafana
+4. grafana 初始化监控面板镜像
 
 ## install
 ### 准备 yaml 资源
