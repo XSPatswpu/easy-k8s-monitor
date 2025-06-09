@@ -34,4 +34,36 @@ kubectl apply -f prometheus-deploy.yaml
 
 ## 节点监控
 ### 安装 node-exporter
+安装流程参考：https://artifacthub.io/packages/helm/prometheus-community/prometheus-node-exporter
 
+node-exporter scrapeJob config:
+```yaml
+scrape_configs:
+  - job_name: 'node-exporter'
+    kubernetes_sd_configs:
+      - role: pod
+    relabel_configs:
+      - action: keep
+        source_labels:
+          - __meta_kubernetes_pod_label_app
+        regex: node-exporter  # Match pods with label app=node-exporter
+      - action: keep
+        source_labels:
+          - __meta_kubernetes_pod_annotation_prometheus_io_scrape
+        regex: "true"
+      - source_labels:
+          - __meta_kubernetes_pod_annotation_prometheus_io_path
+        action: replace
+        target_label: __metrics_path__
+        regex: (.+)
+      - source_labels:
+          - __address__
+          - __meta_kubernetes_pod_annotation_prometheus_io_port
+        action: replace
+        regex: (.+):(?:\d+);(\d+)
+        replacement: $1:$2
+        target_label: __address__
+      - action: labelmap
+        regex: __meta_kubernetes_pod_label_(.+)
+
+```
