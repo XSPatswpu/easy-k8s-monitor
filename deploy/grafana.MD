@@ -1,9 +1,10 @@
 # Grafana
 
-## 安装
-安装过程参考：https://artifacthub.io/packages/helm/grafana/grafana
+## 部署
+### 安装参考
+https://artifacthub.io/packages/helm/grafana/grafana
 
-安装完成操作提示：
+### 安装完成提示
 ```txt
 NAME: xsp-release
 LAST DEPLOYED: Mon Jun  9 17:40:01 2025
@@ -31,6 +32,24 @@ NOTES:
 #################################################################################
 ```
 
+### 创建 svc
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: public-grafana-svc
+  namespace: default
+  labels:
+    app.kubernetes.io/name: grafana
+spec:
+  selector:
+    app.kubernetes.io/name: grafana
+  type: NodePort
+  ports:
+    - name: web
+      port: 80
+      targetPort: grafana
+```
 
 ## 内置面板数据
 
