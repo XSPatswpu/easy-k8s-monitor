@@ -50,8 +50,40 @@ spec:
       port: 80
       targetPort: grafana
 ```
+## 外网访问
+使用和 prometheus 同样的外网访问方式。
+
+nginx 反向代理配置（/etc/nginx/sites-available/grafana-site）：
+```txt
+map $http_upgrade $connection_upgrade {
+  default upgrade;
+  '' close;
+}
+
+upstream grafana {
+  server <k8s集群apiserver外网IP>:<grafana svc nodePort>;
+}
+
+server {
+  listen 8888;
+  server_name <nginx ecs IP>;
+
+  location / {
+    proxy_set_header Host $host;
+    proxy_pass http://grafana;
+  }
+
+  location /api/live/ {
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection $connection_upgrade;
+    proxy_set_header Host $host;
+    proxy_pass http://grafana;
+  }
+}
+```
+
+参考文档：
+https://grafana.com/tutorials/run-grafana-behind-a-proxy/
 
 ## 内置面板数据
-
-
-## 外网访问
