@@ -27,7 +27,7 @@ kubectl apply -f prometheus-rbac.yaml
 kubectl apply -f prometheus-deploy.yaml
 ```
 ### 外网访问 prometheus 方案
-![img.png](../image/prometheus-access.png)
+![img.png](../../../image/prometheus-access.png)
 
 ## 配置控制面组件监控
 
