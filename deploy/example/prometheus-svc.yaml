@@ -14,3 +14,19 @@ spec:
     - name: web
       port: 9090
       targetPort: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus-svc
+  namespace: monitor
+  labels:
+    app: prometheus
+spec:
+  selector:
+    app: prometheus
+  type: ClusterIP
+  ports:
+    - name: web
+      port: 80
+      targetPort: http

@@ -22,7 +22,9 @@
 - [ ] 手动搭建监控系统，验证整理流程通路。
     - [x] 安装 prometheus
     - [ ] 配置控制面组件监控、节点监控
-    - [ ] 安装 grafana
+        - [x] node-exporter
+        - [ ] kube-state-metrics
+    - [x] 安装 grafana
 
 - [ ] 基于 operator 自动化部署方案设计。
 
