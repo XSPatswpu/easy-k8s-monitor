@@ -1,0 +1,190 @@
+---
+# Ansible Playbook: Initialize Kubernetes Worker Node
+# Target: Ubuntu 22.04 (Jammy)
+
+- name: Initialize Kubernetes Worker Node
+  hosts: workers
+  become: yes
+  vars:
+    # Kubernetes 版本
+    k8s_version: "1.30"
+    # Master 节点地址
+    master_ip: "192.168.56.101"
+    master_port: "6443"
+    # 国内镜像加速
+    use_china_mirrors: true
+    # 清华源地址
+    tsinghua_mirror: "https://mirrors.tuna.tsinghua.edu.cn"
+
+  tasks:
+    # ============================================
+    # 1. 系统准备
+    # ============================================
+    - name: Disable swap
+      command: swapoff -a
+      changed_when: false
+
+    - name: Remove swap from fstab
+      lineinfile:
+        path: /etc/fstab
+        regexp: '.*swap.*'
+        state: absent
+
+    - name: Mask swap.target to prevent swap activation
+      systemd:
+        name: swap.target
+        masked: yes
+
+    - name: Load required kernel modules
+      modprobe:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - overlay
+        - br_netfilter
+
+    - name: Persist kernel modules
+      copy:
+        dest: /etc/modules-load.d/k8s.conf
+        content: |
+          overlay
+          br_netfilter
+
+    - name: Set sysctl parameters for Kubernetes
+      sysctl:
+        name: "{{ item.key }}"
+        value: "{{ item.value }}"
+        sysctl_file: /etc/sysctl.d/k8s.conf
+        reload: yes
+      loop:
+        - { key: "net.bridge.bridge-nf-call-iptables", value: "1" }
+        - { key: "net.bridge.bridge-nf-call-ip6tables", value: "1" }
+        - { key: "net.ipv4.ip_forward", value: "1" }
+
+    # ============================================
+    # 2. 安装 containerd
+    # ============================================
+    - name: Install dependencies
+      apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - gnupg
+          - lsb-release
+        state: present
+        update_cache: yes
+
+    - name: Add Docker GPG key (for containerd)
+      apt_key:
+        url: "{{ tsinghua_mirror }}/docker-ce/linux/ubuntu/gpg"
+        state: present
+      when: use_china_mirrors
+
+    - name: Add Docker repository (Tsinghua mirror)
+      apt_repository:
+        repo: "deb [arch=amd64] {{ tsinghua_mirror }}/docker-ce/linux/ubuntu {{ ansible_distribution_release }} stable"
+        state: present
+        filename: docker-ce
+      when: use_china_mirrors
+
+    - name: Install containerd
+      apt:
+        name: containerd.io
+        state: present
+        update_cache: yes
+
+    - name: Remove old containerd config
+      file:
+        path: /etc/containerd/config.toml
+        state: absent
+
+    - name: Generate default containerd config
+      shell: containerd config default > /etc/containerd/config.toml
+
+    - name: Configure containerd to use systemd cgroup
+      replace:
+        path: /etc/containerd/config.toml
+        regexp: 'SystemdCgroup = false'
+        replace: 'SystemdCgroup = true'
+
+    - name: Enable and start containerd
+      systemd:
+        name: containerd
+        enabled: yes
+        state: restarted
+        daemon_reload: yes
+
+    # ============================================
+    # 3. 安装 kubeadm, kubelet, kubectl
+    # ============================================
+    - name: Add Kubernetes GPG key (Aliyun mirror)
+      apt_key:
+        url: "https://mirrors.aliyun.com/kubernetes-new/core/stable/v{{ k8s_version }}/deb/Release.key"
+        state: present
+      when: use_china_mirrors
+
+    - name: Add Kubernetes repository (Aliyun mirror)
+      apt_repository:
+        repo: "deb https://mirrors.aliyun.com/kubernetes-new/core/stable/v{{ k8s_version }}/deb/ /"
+        state: present
+        filename: kubernetes
+      when: use_china_mirrors
+
+    - name: Install Kubernetes components
+      apt:
+        name:
+          - kubelet
+          - kubeadm
+          - kubectl
+        state: present
+        update_cache: yes
+
+    - name: Hold Kubernetes packages at current version
+      dpkg_selections:
+        name: "{{ item }}"
+        selection: hold
+      loop:
+        - kubelet
+        - kubeadm
+        - kubectl
+
+    - name: Enable kubelet service
+      systemd:
+        name: kubelet
+        enabled: yes
+
+    # ============================================
+    # 4. 加入 Kubernetes 集群
+    # ============================================
+    - name: Check if node already joined the cluster
+      stat:
+        path: /etc/kubernetes/kubelet.conf
+      register: kubelet_conf
+
+    - name: Get join command from master
+      delegate_to: "{{ master_ip }}"
+      command: kubeadm token create --print-join-command
+      register: join_command
+      changed_when: false
+      when: not kubelet_conf.stat.exists
+
+    - name: Join the Kubernetes cluster
+      command: "{{ join_command.stdout }}"
+      when:
+        - not kubelet_conf.stat.exists
+        - join_command.stdout is defined
+
+    # ============================================
+    # 5. 验证节点状态
+    # ============================================
+    - name: Wait for kubelet to be ready
+      wait_for:
+        path: /etc/kubernetes/kubelet.conf
+        state: present
+        timeout: 60
+
+    - name: Display join status
+      debug:
+        msg: "Worker node {{ inventory_hostname }} has joined the cluster successfully!"
+      when: not kubelet_conf.stat.exists
