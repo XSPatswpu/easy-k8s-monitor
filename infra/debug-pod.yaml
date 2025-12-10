@@ -9,11 +9,11 @@ spec:
   replicas: 1
   selector:
     matchLabels:
-      app: test-pod-1
+      app: debug-pod-1
   template:
     metadata:
       labels:
-        app: test-pod-1
+        app: debug-pod-1
     spec:
       containers:
         - image: docker.io/cherry22/debug-pod:v1.0.0
